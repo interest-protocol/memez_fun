@@ -5,4 +5,4 @@ node_modules
 .env.local
 .idea
 .DS_Store
-.build
+build
