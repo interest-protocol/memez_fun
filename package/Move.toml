@@ -1,0 +1,29 @@
+[package]
+name = "MemezFun"
+edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
+license = "MIT"
+authors = ["Jose Cerqueira (jose@interestprotocol.com)"]
+version = "1.0.0"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet" }
+SuiTears = { git = "https://github.com/interest-protocol/suitears.git", subdir = "contracts", rev = "main" }
+MemezV2Invariant = { git = "https://github.com/interest-protocol/memez-v2-invariant.git", rev = "main" }
+
+# For remote import, use the `{ git = "...", subdir = "...", rev = "..." }`.
+# Revision can be a branch, a tag, and a commit hash.
+# MyRemotePackage = { git = "https://some.remote/host.git", subdir = "remote/path", rev = "main" }
+
+# For local dependencies use `local = path`. Path is relative to the package root
+# Local = { local = "../path/to" }
+
+# To resolve a version conflict and force a specific version for dependency
+# override use `override = true`
+# Override = { local = "../conflicting/version", override = true }
+
+[addresses]
+memez_fun = "0x0"
+std = "0x1"
+sui = "0x2"
+suitears = "0xd5cd31f4bf84a2c280c9ed20cbb20345cbe5c1ebe63014c406f97b20edd4ac63"
+admin = "0xA11c3"

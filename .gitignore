@@ -1,0 +1,8 @@
+node_modules
+.trace
+.vscode
+.env
+.env.local
+.idea
+.DS_Store
+.build

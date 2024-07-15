@@ -1,0 +1,35 @@
+---
+compiled_package_info:
+  package_name: MemezFun
+  address_alias_instantiation:
+    admin: 00000000000000000000000000000000000000000000000000000000000a11c3
+    memez_fun: "0000000000000000000000000000000000000000000000000000000000000000"
+    memez_v2_invariant: "0000000000000000000000000000000000000000000000000000000000000000"
+    std: "0000000000000000000000000000000000000000000000000000000000000001"
+    sui: "0000000000000000000000000000000000000000000000000000000000000002"
+    suitears: d5cd31f4bf84a2c280c9ed20cbb20345cbe5c1ebe63014c406f97b20edd4ac63
+  source_digest: 58D0B9995812E60EB9D39E3CC0D01D4E6F3DC4642B0DCC26F2F360C0AC0A6BB2
+  build_flags:
+    dev_mode: false
+    test_mode: false
+    generate_docs: false
+    install_dir: ~
+    force_recompilation: false
+    lock_file: "./Move.lock"
+    fetch_deps_only: false
+    skip_fetch_latest_git_deps: false
+    default_flavor: sui
+    default_edition: ~
+    deps_as_root: false
+    silence_warnings: false
+    warnings_are_errors: false
+    json_errors: false
+    additional_named_addresses: {}
+    lint_flag:
+      no_lint: false
+      lint: false
+dependencies:
+  - MemezV2Invariant
+  - MoveStdlib
+  - Sui
+  - SuiTears
