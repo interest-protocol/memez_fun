@@ -135,9 +135,9 @@ module memez_fun::memez_fun {
 
 
         if (utils::are_coins_ordered<CoinA, CoinB>())
-            new_impl<CoinA, CoinB>(registry, balance_a, balance_b,  true, ctx)
+            new_impl<CoinA, CoinB>(registry, balance_a, balance_b,  false, ctx)
         else 
-            new_impl<CoinB, CoinA>(registry, balance_b, balance_a,  false, ctx)
+            new_impl<CoinB, CoinA>(registry, balance_b, balance_a,  true, ctx)
     }
 
     public fun swap<CoinIn, CoinOut>(
