@@ -5,7 +5,7 @@ module memez_fun::memez_fun_utils {
 
     use memez_fun::memez_fun_errors as errors;
 
-    public(package) fun are_coins_ordered<CoinA, CoinB>(): bool {
+    public fun are_coins_ordered<CoinA, CoinB>(): bool {
         let coin_a_type_name = type_name::get<CoinA>();
         let coin_b_type_name = type_name::get<CoinB>();
     
