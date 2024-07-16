@@ -20,6 +20,7 @@ module memez_fun::memez_fun {
     use memez_fun::{
         memez_fun_utils as utils,
         memez_fun_errors as errors,
+        memez_fun_events as events,
     };
 
     // === Errors ===
@@ -48,7 +49,7 @@ module memez_fun::memez_fun {
 
     public struct StateKey has copy, drop, store {}
 
-    public struct Registry has key {
+    public struct Config has key {
         id: UID,
         /// type_name::get<PoolKey>() => Pool address
         pools: Table<TypeName, address>,
@@ -79,17 +80,12 @@ module memez_fun::memez_fun {
         id: UID,
     }
 
-    public struct SwapAmount has store, drop, copy {
-        amount_out: u64,
-        fee: u64
-    }
-
     // === Public-Mutative Functions ===
 
     fun init(ctx: &mut TxContext) {
         transfer::public_transfer(Admin { id: object::new(ctx) }, ctx.sender());
         transfer::share_object(
-            Registry {
+            Config {
                 id: object::new(ctx),
                 pools: table::new(ctx),
                 create_fee: FIVE_SUI,
@@ -103,32 +99,32 @@ module memez_fun::memez_fun {
     }
 
     public fun new<CoinA, CoinB, Witness: drop>(
-        registry: &mut Registry,
+        config: &mut Config,
         mut treasury_cap: TreasuryCap<CoinA>,
         metadata: &CoinMetadata<CoinA>,
         create_fee: Coin<SUI>,
         ctx: &mut TxContext
     ): FunPool {
-        assert!(registry.whitelist.contains(&type_name::get<Witness>()), errors::witness_not_whitelisted_to_migrate());
+        assert!(config.whitelist.contains(&type_name::get<Witness>()), errors::witness_not_whitelisted_to_migrate());
         assert!(treasury_cap.total_supply() == 0, errors::must_have_no_supply());
         assert!(metadata.get_decimals() == MEME_DECIMALS, errors::must_have_nine_decimals());
-        assert!(create_fee.value() >= registry.create_fee, errors::create_fee_is_too_low());
+        assert!(create_fee.value() >= config.create_fee, errors::create_fee_is_too_low());
         assert!(
-            registry.initial_virtual_liquidity_config.contains(&type_name::get<CoinB>()) 
-            && registry.migration_liquidity_config.contains(&type_name::get<CoinB>()),
+            config.initial_virtual_liquidity_config.contains(&type_name::get<CoinB>()) 
+            && config.migration_liquidity_config.contains(&type_name::get<CoinB>()),
             errors::no_config_available()
         );
 
         let balance_a = treasury_cap.mint(MEME_TOTAL_SUPPLY, ctx).into_balance();
         transfer::public_transfer(treasury_cap, DEAD_WALLET);
         let balance_b = balance::zero<CoinB>();
-        transfer::public_transfer(create_fee, registry.admin);
+        transfer::public_transfer(create_fee, config.admin);
 
 
         if (utils::are_coins_ordered<CoinA, CoinB>())
-            new_impl<CoinA, CoinB, Witness>(registry, balance_a, balance_b,  false, ctx)
+            new_impl<CoinA, CoinB, Witness>(config, balance_a, balance_b,  false, ctx)
         else 
-            new_impl<CoinB, CoinA, Witness>(registry, balance_b, balance_a,  true, ctx)
+            new_impl<CoinB, CoinA, Witness>(config, balance_b, balance_a,  true, ctx)
     }
 
     public fun swap<CoinIn, CoinOut>(
@@ -176,11 +172,23 @@ module memez_fun::memez_fun {
         assert!(migration_witness == type_name::get<Witness>(), errors::incorrect_migration_witness());
         assert!(is_migrating, errors::must_be_migrating());
 
+        let FunPool { id } = pool;
+
+        events::migrated(
+            id.to_address(), 
+            type_name::get<CoinX>(),
+            type_name::get<CoinY>(),
+            balance_x.value(),
+            balance_y.value(),
+            admin_balance_x.value(),
+            admin_balance_y.value(),
+            migration_witness
+        );
+
+        id.delete();
+
         transfer::public_transfer(admin_balance_x.into_coin(ctx), admin);
         transfer::public_transfer(admin_balance_y.into_coin(ctx), admin);
-
-        let FunPool { id } = pool;
-        id.delete();
 
         (
             balance_x.into_coin(ctx),
@@ -190,41 +198,41 @@ module memez_fun::memez_fun {
 
     // === Public-View Functions ===
 
-    public fun pools(registry: &Registry): &Table<TypeName, address> {
-        &registry.pools
+    public fun pools(config: &Config): &Table<TypeName, address> {
+        &config.pools
     }
 
-    public use fun registry_admin as Registry.admin;
-    public fun registry_admin(registry: &Registry): address {
-        registry.admin
+    public use fun registry_admin as Config.admin;
+    public fun registry_admin(config: &Config): address {
+        config.admin
     }
 
-    public fun pool_address<CoinA, CoinB>(registry: &Registry): Option<address> {
+    public fun pool_address<CoinA, CoinB>(config: &Config): Option<address> {
         let key = make_pool_key<CoinA, CoinB>();
-        if (registry.pools.contains(key))
-            option::some(*registry.pools.borrow(key))
+        if (config.pools.contains(key))
+            option::some(*config.pools.borrow(key))
         else
             option::none()
     }
 
-    public fun create_fee(registry: &Registry): u64 {
-        registry.create_fee
+    public fun create_fee(config: &Config): u64 {
+        config.create_fee
     }
 
-    public fun swap_fee(registry: &Registry): u64 {
-        registry.swap_fee
+    public fun swap_fee(config: &Config): u64 {
+        config.swap_fee
     }
 
-    public fun initial_virtual_liquidity_config(registry: &Registry): VecMap<TypeName, u64> {
-        registry.initial_virtual_liquidity_config
+    public fun initial_virtual_liquidity_config(config: &Config): VecMap<TypeName, u64> {
+        config.initial_virtual_liquidity_config
     }
 
-    public fun migration_liquidity_config(registry: &Registry): VecMap<TypeName, u64> {
-        registry.migration_liquidity_config
+    public fun migration_liquidity_config(config: &Config): VecMap<TypeName, u64> {
+        config.migration_liquidity_config
     }
 
-    public fun exists_<CoinA, CoinB>(registry: &Registry): bool {
-        registry.pools.contains(make_pool_key<CoinA, CoinB>())   
+    public fun exists_<CoinA, CoinB>(config: &Config): bool {
+        config.pools.contains(make_pool_key<CoinA, CoinB>())   
     }
 
     public fun balance_x<CoinX, CoinY>(pool: &FunPool): u64 {
@@ -294,7 +302,7 @@ module memez_fun::memez_fun {
     // === Private Functions ===
 
     fun new_impl<CoinX, CoinY, Witness>(
-        registry: &mut Registry,
+        config: &mut Config,
         balance_x: Balance<CoinX>,
         balance_y: Balance<CoinY>,
         is_x_virtual: bool,
@@ -305,8 +313,8 @@ module memez_fun::memez_fun {
 
         let virtual_asset_key = if (is_x_virtual) type_name::get<CoinX>() else type_name::get<CoinY>();
 
-        let virtual_liquidity = *registry.initial_virtual_liquidity_config.get(&virtual_asset_key);
-        let migration_liquidity_target = *registry.migration_liquidity_config.get(&virtual_asset_key);
+        let virtual_liquidity = *config.initial_virtual_liquidity_config.get(&virtual_asset_key);
+        let migration_liquidity_target = *config.migration_liquidity_config.get(&virtual_asset_key);
 
         let state = FunPoolState {
             balance_x,
@@ -315,11 +323,11 @@ module memez_fun::memez_fun {
             admin_balance_y: balance::zero<CoinY>(),
             liquidity_x: balance_x_value + if (is_x_virtual) virtual_liquidity else 0,
             liquidity_y: balance_y_value + if (is_x_virtual) 0 else virtual_liquidity,
-            swap_fee: registry.swap_fee,
+            swap_fee: config.swap_fee,
             is_migrating: false,
             is_x_virtual,
             migration_liquidity_target,
-            admin: registry.admin,
+            admin: config.admin,
             migration_witness: type_name::get<Witness>() 
         };
 
@@ -327,9 +335,21 @@ module memez_fun::memez_fun {
             id: object::new(ctx)
         };
 
+        events::new_fun_pool(
+            pool.id.to_address(), 
+            type_name::get<CoinX>(),
+            type_name::get<CoinY>(),
+            balance_x_value,
+            balance_y_value,
+            state.liquidity_x,
+            state.liquidity_y,
+            is_x_virtual,
+            type_name::get<Witness>()
+        );
+
         df::add(&mut pool.id, StateKey {}, state);
 
-        registry.pools.add(type_name::get<PoolKey<CoinX, CoinY>>(), pool.id.to_address());
+        config.pools.add(type_name::get<PoolKey<CoinX, CoinY>>(), pool.id.to_address());
 
         pool
     }
@@ -340,31 +360,41 @@ module memez_fun::memez_fun {
         coin_y_min_value: u64,
         ctx: &mut TxContext
     ): Coin<CoinY> {
+        let pool_address = pool.id.to_address();
         let pool_state = pool_state_mut<CoinX, CoinY>(pool);
         assert!(!pool_state.is_migrating, errors::pool_is_migrating());
 
         let coin_in_amount = coin_x.value();
     
-        let swap_amount = swap_amounts(
+        let (amount_out, fee) = swap_impl(
             pool_state, 
             coin_in_amount, 
             coin_y_min_value, 
             true,
         );
-        if (swap_amount.fee != 0) {
-            pool_state.admin_balance_x.join(coin_x.split(swap_amount.fee, ctx).into_balance());  
+        if (fee != 0) {
+            pool_state.admin_balance_x.join(coin_x.split(fee, ctx).into_balance());  
         };
 
         let value_x = coin_x.value();
 
         pool_state.balance_x.join(coin_x.into_balance());
 
-        let out_value = min(swap_amount.amount_out, pool_state.balance_y.value());
+        let out_value = min(amount_out, pool_state.balance_y.value());
 
         pool_state.liquidity_x = pool_state.liquidity_x + value_x;
         pool_state.liquidity_y = pool_state.liquidity_y - out_value;
 
-        pool_state.may_be_toggle_migrate();
+        events::swap(
+            pool_address, 
+            type_name::get<CoinX>(), 
+            type_name::get<CoinY>(), 
+            coin_in_amount, 
+            amount_out, 
+            fee
+        );
+
+        pool_state.may_be_toggle_migrate(pool_address);
 
         pool_state.balance_y.split(out_value).into_coin(ctx) 
     }
@@ -375,42 +405,52 @@ module memez_fun::memez_fun {
         coin_x_min_value: u64,
         ctx: &mut TxContext
     ): Coin<CoinX> {
+        let pool_address = pool.id.to_address();
         let pool_state = pool_state_mut<CoinX, CoinY>(pool);
         assert!(!pool_state.is_migrating, errors::pool_is_migrating());
 
         let coin_in_amount = coin_y.value();
         
-        let swap_amount = swap_amounts(
+        let (amount_out, fee) = swap_impl(
             pool_state, 
             coin_in_amount, 
             coin_x_min_value, 
             false
         );
 
-        if (swap_amount.fee != 0) {
-            pool_state.admin_balance_y.join(coin_y.split(swap_amount.fee, ctx).into_balance());  
+        if (fee != 0) {
+            pool_state.admin_balance_y.join(coin_y.split(fee, ctx).into_balance());  
         };
 
         let value_y = coin_y.value();
 
         pool_state.balance_y.join(coin_y.into_balance());
 
-        let out_value = min(swap_amount.amount_out, pool_state.balance_x.value());
+        let out_value = min(amount_out, pool_state.balance_x.value());
 
         pool_state.liquidity_x = pool_state.liquidity_x - out_value;
         pool_state.liquidity_y = pool_state.liquidity_y + value_y;
 
-        pool_state.may_be_toggle_migrate();
+        events::swap(
+            pool_address, 
+            type_name::get<CoinY>(), 
+            type_name::get<CoinX>(), 
+            coin_in_amount, 
+            amount_out, 
+            fee
+        );
+
+        pool_state.may_be_toggle_migrate(pool_address);
 
         pool_state.balance_x.split(out_value).into_coin(ctx) 
     }  
 
-    fun swap_amounts<CoinX, CoinY>(
+    fun swap_impl<CoinX, CoinY>(
         pool_state: &FunPoolState<CoinX, CoinY>,
         coin_in_amount: u64,
         coin_out_min_value: u64,
         is_x: bool
-    ): SwapAmount {
+    ): (u64, u64) {
         let (balance_x, balance_y) = (
             pool_state.liquidity_x,
             pool_state.liquidity_y
@@ -438,16 +478,22 @@ module memez_fun::memez_fun {
         // @dev impossible to trigger - sanity check
         assert!(new_k >= prev_k, errors::invalid_invariant());
 
-        SwapAmount {
-            amount_out,
-            fee
-        }  
+        (amount_out, fee) 
     }
 
-    fun may_be_toggle_migrate<CoinX, CoinY>(state: &mut FunPoolState<CoinX, CoinY>) {
+    fun may_be_toggle_migrate<CoinX, CoinY>(state: &mut FunPoolState<CoinX, CoinY>, pool: address) {
         let liquidity = if (state.is_x_virtual) state.liquidity_y else state.liquidity_x;
 
-        if (liquidity >= state.migration_liquidity_target) state.is_migrating = true;
+        if (liquidity >= state.migration_liquidity_target) {
+            state.is_migrating = true;
+
+            events::ready_for_migration(
+                pool, 
+                type_name::get<CoinX>(), 
+                type_name::get<CoinY>(), 
+                state.migration_witness
+            );
+        };
     }
 
     fun make_pool_key<CoinA, CoinB>(): TypeName {
