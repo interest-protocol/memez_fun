@@ -194,6 +194,11 @@ module memez_fun::memez_fun {
         &registry.pools
     }
 
+    public use fun registry_admin as Registry.admin;
+    public fun registry_admin(registry: &Registry): address {
+        registry.admin
+    }
+
     public fun pool_address<CoinA, CoinB>(registry: &Registry): Option<address> {
         let key = make_pool_key<CoinA, CoinB>();
         if (registry.pools.contains(key))
@@ -271,6 +276,17 @@ module memez_fun::memez_fun {
     public fun migration_liquidity_target<CoinX, CoinY>(pool: &FunPool): u64 {
         let pool_state = pool_state<CoinX, CoinY>(pool);
         pool_state.migration_liquidity_target
+    }
+
+    public fun migration_witness<CoinX, CoinY>(pool: &FunPool): TypeName {
+        let pool_state = pool_state<CoinX, CoinY>(pool);
+        pool_state.migration_witness
+    }
+
+    public use fun pool_admin as FunPool.admin;
+    public fun pool_admin<CoinX, CoinY>(pool: &FunPool): address {
+        let pool_state = pool_state<CoinX, CoinY>(pool);
+        pool_state.admin
     }
 
     // === Admin Functions ===
