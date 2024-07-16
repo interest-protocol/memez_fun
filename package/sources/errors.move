@@ -11,6 +11,7 @@ module memez_fun::memez_fun_errors {
     const INVALID_INVARIANT: u64 = 8;
     const WITNESS_NOT_WHITELISTED_TO_MIGRATE: u64 = 9;
     const MUST_BE_MIGRATING: u64 = 10;
+    const INCORRECT_MIGRATION_WITNESS: u64 = 11;
 
     public(package) fun same_coins_not_allowed(): u64 {
         SAME_COINS_NOT_ALLOWED
@@ -54,5 +55,9 @@ module memez_fun::memez_fun_errors {
 
     public(package) fun must_be_migrating(): u64 {
         MUST_BE_MIGRATING
+    }
+
+    public(package) fun incorrect_migration_witness(): u64 {
+        INCORRECT_MIGRATION_WITNESS
     }
 }

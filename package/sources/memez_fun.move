@@ -57,6 +57,7 @@ module memez_fun::memez_fun {
         swap_fee: u64,
         initial_virtual_liquidity_config: VecMap<TypeName, u64>,
         migration_liquidity_config: VecMap<TypeName, u64>,
+        whitelist: VecSet<TypeName>,
     }
 
     public struct FunPoolState<phantom CoinX, phantom CoinY> has store {
@@ -70,12 +71,7 @@ module memez_fun::memez_fun {
         is_migrating: bool,
         is_x_virtual: bool,
         migration_liquidity_target: u64,
-    }
-
-    // @dev Admin can Whitelist Witnesses from adapters that can trigger migrations
-    public struct MigrationController has key {
-        id: UID,
-        whitelist: VecSet<TypeName>,
+        migration_witness: TypeName,
         admin: address
     }
 
@@ -100,25 +96,20 @@ module memez_fun::memez_fun {
                 swap_fee: INITIAL_SWAP_FEE,
                 initial_virtual_liquidity_config: vec_map::empty(),
                 migration_liquidity_config: vec_map::empty(),
-                admin: @admin
-            }
-        );
-        transfer::share_object(
-            MigrationController {
-                id: object::new(ctx),
                 whitelist: vec_set::empty(),
                 admin: @admin
             }
         );
     }
 
-    public fun new<CoinA, CoinB>(
+    public fun new<CoinA, CoinB, Witness: drop>(
         registry: &mut Registry,
         mut treasury_cap: TreasuryCap<CoinA>,
         metadata: &CoinMetadata<CoinA>,
         create_fee: Coin<SUI>,
         ctx: &mut TxContext
     ): FunPool {
+        assert!(registry.whitelist.contains(&type_name::get<Witness>()), errors::witness_not_whitelisted_to_migrate());
         assert!(treasury_cap.total_supply() == 0, errors::must_have_no_supply());
         assert!(metadata.get_decimals() == MEME_DECIMALS, errors::must_have_nine_decimals());
         assert!(create_fee.value() >= registry.create_fee, errors::create_fee_is_too_low());
@@ -135,9 +126,9 @@ module memez_fun::memez_fun {
 
 
         if (utils::are_coins_ordered<CoinA, CoinB>())
-            new_impl<CoinA, CoinB>(registry, balance_a, balance_b,  false, ctx)
+            new_impl<CoinA, CoinB, Witness>(registry, balance_a, balance_b,  false, ctx)
         else 
-            new_impl<CoinB, CoinA>(registry, balance_b, balance_a,  true, ctx)
+            new_impl<CoinB, CoinA, Witness>(registry, balance_b, balance_a,  true, ctx)
     }
 
     public fun swap<CoinIn, CoinOut>(
@@ -161,11 +152,9 @@ module memez_fun::memez_fun {
 
     public fun migrate<CoinX, CoinY, Witness: drop>(
         mut pool: FunPool, 
-        controller: &MigrationController, 
         _: Witness, 
         ctx: &mut TxContext
     ): (Coin<CoinX>, Coin<CoinY>) {
-        assert!(controller.whitelist.contains(&type_name::get<Witness>()), errors::witness_not_whitelisted_to_migrate());
         
         let state = df::remove<StateKey, FunPoolState<CoinX, CoinY>>(&mut pool.id, StateKey {});
 
@@ -179,13 +168,16 @@ module memez_fun::memez_fun {
             liquidity_y: _,
             is_migrating,
             is_x_virtual: _,
-            migration_liquidity_target: _
+            migration_liquidity_target: _,
+            admin,
+            migration_witness
         } = state;
 
+        assert!(migration_witness == type_name::get<Witness>(), errors::incorrect_migration_witness());
         assert!(is_migrating, errors::must_be_migrating());
 
-        transfer::public_transfer(admin_balance_x.into_coin(ctx), controller.admin);
-        transfer::public_transfer(admin_balance_y.into_coin(ctx), controller.admin);
+        transfer::public_transfer(admin_balance_x.into_coin(ctx), admin);
+        transfer::public_transfer(admin_balance_y.into_coin(ctx), admin);
 
         let FunPool { id } = pool;
         id.delete();
@@ -281,19 +273,11 @@ module memez_fun::memez_fun {
         pool_state.migration_liquidity_target
     }
 
-    public fun whitelist(controller: &MigrationController): vector<TypeName> {
-        controller.whitelist.into_keys()
-    }
-
-    public fun admin(controller: &MigrationController): address {
-        controller.admin
-    }
-
     // === Admin Functions ===
 
     // === Private Functions ===
 
-    fun new_impl<CoinX, CoinY>(
+    fun new_impl<CoinX, CoinY, Witness>(
         registry: &mut Registry,
         balance_x: Balance<CoinX>,
         balance_y: Balance<CoinY>,
@@ -318,7 +302,9 @@ module memez_fun::memez_fun {
             swap_fee: registry.swap_fee,
             is_migrating: false,
             is_x_virtual,
-            migration_liquidity_target 
+            migration_liquidity_target,
+            admin: registry.admin,
+            migration_witness: type_name::get<Witness>() 
         };
 
         let mut pool = FunPool {
