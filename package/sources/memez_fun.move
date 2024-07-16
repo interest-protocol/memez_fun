@@ -417,7 +417,6 @@ module memez_fun::memez_fun {
         let (amount_out, fee) = swap_impl(
             pool_state, 
             coin_in_amount, 
-            coin_y_min_value, 
             true,
         );
         if (fee != 0) {
@@ -429,6 +428,8 @@ module memez_fun::memez_fun {
         pool_state.balance_x.join(coin_x.into_balance());
 
         let out_value = min(amount_out, pool_state.balance_y.value());
+
+        assert!(out_value >= coin_y_min_value, errors::slippage());
 
         pool_state.liquidity_x = pool_state.liquidity_x + value_x;
         pool_state.liquidity_y = pool_state.liquidity_y - out_value;
@@ -462,7 +463,6 @@ module memez_fun::memez_fun {
         let (amount_out, fee) = swap_impl(
             pool_state, 
             coin_in_amount, 
-            coin_x_min_value, 
             false
         );
 
@@ -475,6 +475,8 @@ module memez_fun::memez_fun {
         pool_state.balance_y.join(coin_y.into_balance());
 
         let out_value = min(amount_out, pool_state.balance_x.value());
+
+        assert!(out_value >= coin_x_min_value, errors::slippage());
 
         pool_state.liquidity_x = pool_state.liquidity_x - out_value;
         pool_state.liquidity_y = pool_state.liquidity_y + value_y;
@@ -496,7 +498,6 @@ module memez_fun::memez_fun {
     fun swap_impl<CoinX, CoinY>(
         pool_state: &FunPoolState<CoinX, CoinY>,
         coin_in_amount: u64,
-        coin_out_min_value: u64,
         is_x: bool
     ): (u64, u64) {
         let (balance_x, balance_y) = (
@@ -515,8 +516,6 @@ module memez_fun::memez_fun {
                 get_amount_out(coin_in_amount, balance_x, balance_y)
             else 
                 get_amount_out(coin_in_amount, balance_y, balance_x);
-
-        assert!(amount_out >= coin_out_min_value, errors::slippage());
 
         let new_k = if (is_x)
                 invariant_(balance_x + coin_in_amount, balance_y - amount_out)
