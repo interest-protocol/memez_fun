@@ -164,7 +164,7 @@ module memez_fun::memez_fun {
         ctx: &mut TxContext
     ): (Coin<CoinX>, Coin<CoinY>) {
         assert!(controller.whitelist.contains(&type_name::get<Witness>()), errors::witness_not_whitelisted_to_migrate());
-
+        
         let state = df::remove<StateKey, FunPoolState<CoinX, CoinY>>(&mut pool.id, StateKey {});
 
         let FunPoolState {
@@ -176,10 +176,12 @@ module memez_fun::memez_fun {
             create_fee,
             liquidity_x: _,
             liquidity_y: _,
-            is_migrating: _,
+            is_migrating,
             is_x_virtual: _,
             migration_liquidity_target: _
         } = state;
+
+        assert!(is_migrating, errors::must_be_migrating());
 
         transfer::public_transfer(admin_balance_x.into_coin(ctx), controller.admin);
         transfer::public_transfer(admin_balance_y.into_coin(ctx), controller.admin);
