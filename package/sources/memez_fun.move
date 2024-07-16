@@ -310,8 +310,6 @@ module memez_fun::memez_fun {
         let balance_x_value = balance_x.value();
         let balance_y_value = balance_y.value();
 
-        assert!(balance_x_value != 0 && balance_y_value != 0, errors::no_zero_value());
-
         let virtual_asset_key = if (is_x_virtual) type_name::get<CoinX>() else type_name::get<CoinY>();
 
         let virtual_liquidity = *registry.initial_virtual_liquidity_config.get(&virtual_asset_key);
@@ -323,7 +321,7 @@ module memez_fun::memez_fun {
             admin_balance_x: balance::zero<CoinX>(),
             admin_balance_y: balance::zero<CoinY>(),
             liquidity_x: balance_x_value + if (is_x_virtual) virtual_liquidity else 0,
-            liquidity_y: balance_x_value + if (is_x_virtual) 0 else virtual_liquidity,
+            liquidity_y: balance_y_value + if (is_x_virtual) 0 else virtual_liquidity,
             create_fee: fee.into_balance(),
             swap_fee: registry.swap_fee,
             is_migrating: false,
