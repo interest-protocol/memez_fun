@@ -564,4 +564,9 @@ module memez_fun::memez_fun {
     }
 
     // === Test Functions ===
+
+    #[test_only]
+    public fun init_for_testing(ctx: &mut TxContext) {
+        init(ctx);
+    }
 }

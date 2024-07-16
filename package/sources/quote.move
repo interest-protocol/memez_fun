@@ -1,4 +1,5 @@
 module memez_fun::memez_fun_quote {
+    // === Imports ===
 
     use memez_fun::{
         memez_fun::FunPool,
@@ -9,7 +10,11 @@ module memez_fun::memez_fun_quote {
 
     use suitears::math64::mul_div_up;
 
+    // === Constants ===
+
     const FEE_PRECISION: u64 = 1_000_000_000;
+
+    // === Public-View Functions ===
 
     public fun amount_out<CoinIn, CoinOut>(pool: &FunPool, amount_in: u64): u64 { 
 
@@ -38,6 +43,8 @@ module memez_fun::memez_fun_quote {
             get_initial_amount(get_amount_in(amount_out, balance_y, balance_x), swap_fee)
         }
     }
+
+    // === Private Functions ===
 
     fun get_initial_amount(x: u64, percent: u64): u64 {
         mul_div_up(x, FEE_PRECISION, FEE_PRECISION - percent)

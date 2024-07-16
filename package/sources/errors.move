@@ -1,5 +1,7 @@
 module memez_fun::memez_fun_errors {
 
+    // === Constants ===
+
     const SAME_COINS_NOT_ALLOWED: u64 = 0;
     const NO_ZERO_VALUE: u64 = 1;
     const MUST_HAVE_NINE_DECIMALS: u64 = 2;
@@ -13,6 +15,8 @@ module memez_fun::memez_fun_errors {
     const MUST_BE_MIGRATING: u64 = 10;
     const INCORRECT_MIGRATION_WITNESS: u64 = 11;
     const SWAP_FEE_IS_TOO_HIGH: u64 = 12;
+
+    // === Public-Package Functions ===
 
     public(package) fun same_coins_not_allowed(): u64 {
         SAME_COINS_NOT_ALLOWED

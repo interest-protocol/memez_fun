@@ -1,8 +1,11 @@
 module memez_fun::memez_fun_events {
+    // === Imports ===
 
     use std::type_name::TypeName;
 
     use sui::event::emit;
+
+    // === Structs ===
 
     public struct NewFunPool has copy, drop, store {
         pool: address,
@@ -42,6 +45,8 @@ module memez_fun::memez_fun_events {
         admin_y: u64,
         migration_witness: TypeName
     }
+
+    // === Public-Package Functions ===
 
     public(package) fun new_fun_pool(
         pool: address,
