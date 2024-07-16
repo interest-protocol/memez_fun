@@ -52,6 +52,7 @@ module memez_fun::memez_fun {
         id: UID,
         /// type_name::get<PoolKey>() => Pool address
         pools: Table<TypeName, address>,
+        admin: address,
         create_fee: u64,
         swap_fee: u64,
         initial_virtual_liquidity_config: VecMap<TypeName, u64>,
@@ -64,7 +65,6 @@ module memez_fun::memez_fun {
         admin_balance_x: Balance<CoinX>,
         admin_balance_y: Balance<CoinY>,
         swap_fee: u64,
-        create_fee: Balance<SUI>,
         liquidity_x: u64,
         liquidity_y: u64,
         is_migrating: bool,
@@ -99,7 +99,8 @@ module memez_fun::memez_fun {
                 create_fee: FIVE_SUI,
                 swap_fee: INITIAL_SWAP_FEE,
                 initial_virtual_liquidity_config: vec_map::empty(),
-                migration_liquidity_config: vec_map::empty()
+                migration_liquidity_config: vec_map::empty(),
+                admin: @admin
             }
         );
         transfer::share_object(
@@ -130,12 +131,13 @@ module memez_fun::memez_fun {
         let balance_a = treasury_cap.mint(MEME_TOTAL_SUPPLY, ctx).into_balance();
         transfer::public_transfer(treasury_cap, DEAD_WALLET);
         let balance_b = balance::zero<CoinB>();
+        transfer::public_transfer(create_fee, registry.admin);
 
 
         if (utils::are_coins_ordered<CoinA, CoinB>())
-            new_impl<CoinA, CoinB>(registry, balance_a, balance_b, create_fee, true, ctx)
+            new_impl<CoinA, CoinB>(registry, balance_a, balance_b,  true, ctx)
         else 
-            new_impl<CoinB, CoinA>(registry, balance_b, balance_a, create_fee, false, ctx)
+            new_impl<CoinB, CoinA>(registry, balance_b, balance_a,  false, ctx)
     }
 
     public fun swap<CoinIn, CoinOut>(
@@ -173,7 +175,6 @@ module memez_fun::memez_fun {
             admin_balance_x,
             admin_balance_y,
             swap_fee: _,
-            create_fee,
             liquidity_x: _,
             liquidity_y: _,
             is_migrating,
@@ -185,7 +186,6 @@ module memez_fun::memez_fun {
 
         transfer::public_transfer(admin_balance_x.into_coin(ctx), controller.admin);
         transfer::public_transfer(admin_balance_y.into_coin(ctx), controller.admin);
-        transfer::public_transfer(create_fee.into_coin(ctx), controller.admin);
 
         let FunPool { id } = pool;
         id.delete();
@@ -250,12 +250,6 @@ module memez_fun::memez_fun {
         pool_state.admin_balance_y.value()
     }
 
-    public use fun pool_create_fee as FunPool.create_fee;
-    public fun pool_create_fee<CoinX, CoinY>(pool: &FunPool): u64 {
-        let pool_state = pool_state<CoinX, CoinY>(pool);
-        pool_state.create_fee.value()
-    }
-
     public use fun pool_swap_fee as FunPool.swap_fee;
     public fun pool_swap_fee<CoinX, CoinY>(pool: &FunPool): u64 {
         let pool_state = pool_state<CoinX, CoinY>(pool);
@@ -303,7 +297,6 @@ module memez_fun::memez_fun {
         registry: &mut Registry,
         balance_x: Balance<CoinX>,
         balance_y: Balance<CoinY>,
-        fee: Coin<SUI>,
         is_x_virtual: bool,
         ctx: &mut TxContext
     ): FunPool {
@@ -322,7 +315,6 @@ module memez_fun::memez_fun {
             admin_balance_y: balance::zero<CoinY>(),
             liquidity_x: balance_x_value + if (is_x_virtual) virtual_liquidity else 0,
             liquidity_y: balance_y_value + if (is_x_virtual) 0 else virtual_liquidity,
-            create_fee: fee.into_balance(),
             swap_fee: registry.swap_fee,
             is_migrating: false,
             is_x_virtual,
