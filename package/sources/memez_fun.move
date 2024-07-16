@@ -359,14 +359,14 @@ module memez_fun::memez_fun {
 
         pool_state.balance_x.join(coin_x.into_balance());
 
+        let out_value = min(swap_amount.amount_out, pool_state.balance_y.value());
+
         pool_state.liquidity_x = pool_state.liquidity_x + value_x;
-        pool_state.liquidity_y = pool_state.liquidity_y - min(swap_amount.amount_out, pool_state.liquidity_y);
+        pool_state.liquidity_y = pool_state.liquidity_y - out_value;
 
         pool_state.may_be_toggle_migrate();
 
-        let balance_y_value = pool_state.balance_y.value();
-
-        pool_state.balance_y.split(min(swap_amount.amount_out, balance_y_value)).into_coin(ctx) 
+        pool_state.balance_y.split(out_value).into_coin(ctx) 
     }
 
     fun swap_coin_y<CoinX, CoinY>(
@@ -395,14 +395,14 @@ module memez_fun::memez_fun {
 
         pool_state.balance_y.join(coin_y.into_balance());
 
-        pool_state.liquidity_x = pool_state.liquidity_x - min(swap_amount.amount_out, pool_state.liquidity_x);
+        let out_value = min(swap_amount.amount_out, pool_state.balance_x.value());
+
+        pool_state.liquidity_x = pool_state.liquidity_x - out_value;
         pool_state.liquidity_y = pool_state.liquidity_y + value_y;
 
         pool_state.may_be_toggle_migrate();
 
-        let balance_x_value = pool_state.balance_x.value();
-
-        pool_state.balance_x.split(min(swap_amount.amount_out, balance_x_value)).into_coin(ctx) 
+        pool_state.balance_x.split(out_value).into_coin(ctx) 
     }  
 
     fun swap_amounts<CoinX, CoinY>(
