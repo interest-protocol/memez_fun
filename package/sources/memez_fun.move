@@ -30,10 +30,12 @@ module memez_fun::memez_fun {
     const FIVE_SUI: u64 = 5_000_000_000;
     
     // 0.3%
-    const INITIAL_SWAP_FEE: u64 = 3000000;
+    const INITIAL_SWAP_FEE: u64 = 3_000_000;
 
     //@dev 1e9 === 100%
     const FEE_PRECISION: u64 = 1_000_000_000;
+    // 2%
+    const MAX_SWAP_FEE: u64 = 20_000_000;
 
     const DEAD_WALLET: address = @0x0;
     const MEME_TOTAL_SUPPLY: u64 = 1_000_000_000_000_000_000;
@@ -299,6 +301,52 @@ module memez_fun::memez_fun {
 
     // === Admin Functions ===
 
+    public fun take_fees<CoinX, CoinY>(pool: &mut FunPool, _: &Admin, ctx: &mut TxContext): (Coin<CoinX>, Coin<CoinY>) {
+        let pool_state = pool_state_mut<CoinX, CoinY>(pool);
+
+        (
+            pool_state.admin_balance_x.withdraw_all().into_coin(ctx),
+            pool_state.admin_balance_y.withdraw_all().into_coin(ctx),
+        )
+    }
+
+    public fun update_admin(config: &mut Config, _: &Admin, admin: address) {
+        config.admin = admin;
+    }
+
+    public fun update_create_fee(config: &mut Config, _: &Admin, fee: u64) {
+        config.create_fee = fee;
+    }
+
+    public fun update_swap_fee(config: &mut Config, _: &Admin, fee: u64) {
+        assert!(MAX_SWAP_FEE >= fee, errors::swap_fee_is_too_high());
+        config.create_fee = fee;
+    }
+
+    public fun update_initial_virtual_liquidity<CoinType>(config: &mut Config, _: &Admin, liquidity: u64) {
+        safe_map_insert<CoinType>(&mut config.initial_virtual_liquidity_config);
+        
+        let v = config.initial_virtual_liquidity_config.get_mut(&type_name::get<CoinType>());
+
+        *v = liquidity;
+    }
+
+    public fun update_migration_liquidity<CoinType>(config: &mut Config, _: &Admin, liquidity: u64) {
+        safe_map_insert<CoinType>(&mut config.migration_liquidity_config);
+        
+        let v = config.migration_liquidity_config.get_mut(&type_name::get<CoinType>());
+
+        *v = liquidity;
+    }
+
+    public fun add_migrator<Witness>(config: &mut Config, _: &Admin) {
+        config.whitelist.insert(type_name::get<Witness>());
+    }
+
+    public fun remove_migrator<Witness>(config: &mut Config, _: &Admin) {
+        config.whitelist.remove(&type_name::get<Witness>());
+    }
+
     // === Private Functions ===
 
     fun new_impl<CoinX, CoinY, Witness>(
@@ -494,6 +542,11 @@ module memez_fun::memez_fun {
                 state.migration_witness
             );
         };
+    }
+
+    fun safe_map_insert<CoinType>(map: &mut VecMap<TypeName, u64>) {
+        if (!map.contains(&type_name::get<CoinType>()))
+            map.insert(type_name::get<CoinType>(), 0);
     }
 
     fun make_pool_key<CoinA, CoinB>(): TypeName {
