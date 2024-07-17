@@ -33,4 +33,9 @@ module memez_fun::memez_fun_test_utils {
         assert_eq(is_coin_x<ETH, ETH>(), false);
     }
 
+    #[test]
+    #[expected_failure(abort_code = memez_fun::memez_fun_errors::SAME_COINS_NOT_ALLOWED, location = memez_fun::memez_fun_utils)]
+    fun test_are_coins_ordered_error_same_coins_not_allowed() {
+        are_coins_ordered<SUI, SUI>();
+    }
 }
