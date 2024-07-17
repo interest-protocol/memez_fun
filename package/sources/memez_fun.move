@@ -126,9 +126,9 @@ module memez_fun::memez_fun {
         transfer::public_transfer(create_fee, config.admin);
 
         if (utils::are_coins_ordered<CoinA, CoinB>())
-            new_impl<CoinA, CoinB, Witness>(config, balance_a, balance_b,  false, burn_percent, ctx)
+            config.new_impl<CoinA, CoinB, Witness>(balance_a, balance_b,  false, burn_percent, ctx)
         else 
-            new_impl<CoinB, CoinA, Witness>(config, balance_b, balance_a,  true, burn_percent, ctx)
+            config.new_impl<CoinB, CoinA, Witness>(balance_b, balance_a,  true, burn_percent, ctx)
     }
 
     public fun swap<CoinIn, CoinOut>(
@@ -140,9 +140,9 @@ module memez_fun::memez_fun {
         assert!(coin_in.value() != 0, errors::no_zero_value());
 
         if (utils::is_coin_x<CoinIn, CoinOut>()) 
-            swap_coin_x<CoinIn, CoinOut>(pool, coin_in, coin_min_value, ctx)
+            pool.swap_coin_x<CoinIn, CoinOut>(coin_in, coin_min_value, ctx)
         else 
-            swap_coin_y<CoinOut, CoinIn>(pool, coin_in, coin_min_value, ctx)
+            pool.swap_coin_y<CoinOut, CoinIn>(coin_in, coin_min_value, ctx)
     }
 
     #[allow(lint(share_owned))]
@@ -435,11 +435,11 @@ module memez_fun::memez_fun {
 
         let coin_in_amount = coin_x.value();
     
-        let (amount_out, fee) = swap_impl(
-            pool_state, 
+        let (amount_out, fee) = pool_state.swap_impl(
             coin_in_amount, 
             true,
         );
+
         if (fee != 0) {
             pool_state.admin_balance_x.join(coin_x.split(fee, ctx).into_balance());  
         };
@@ -481,8 +481,7 @@ module memez_fun::memez_fun {
 
         let coin_in_amount = coin_y.value();
         
-        let (amount_out, fee) = swap_impl(
-            pool_state, 
+        let (amount_out, fee) = pool_state.swap_impl( 
             coin_in_amount, 
             false
         );
