@@ -120,10 +120,10 @@ module memez_fun::memez_fun {
         assert!(MAX_BURN_PERCENT >= burn_percent, errors::burn_percent_is_too_high());
 
         let balance_a = treasury_cap.mint(MEME_TOTAL_SUPPLY, ctx).into_balance();
-        transfer::public_transfer(treasury_cap, DEAD_WALLET);
         let balance_b = balance::zero<CoinB>();
-        transfer::public_transfer(create_fee, config.admin);
 
+        transfer::public_transfer(treasury_cap, DEAD_WALLET);
+        transfer::public_transfer(create_fee, config.admin);
 
         if (utils::are_coins_ordered<CoinA, CoinB>())
             new_impl<CoinA, CoinB, Witness>(config, balance_a, balance_b,  false, burn_percent, ctx)
