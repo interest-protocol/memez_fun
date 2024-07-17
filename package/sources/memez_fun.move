@@ -35,7 +35,7 @@ module memez_fun::memez_fun {
     // 2%
     const MAX_SWAP_FEE: u64 = 20_000_000;
     // 50%
-    const MAX_BURN_PERCENT: u64 = 500_000_000;
+    const MAX_BURN_PERCENT: u64 = 700_000_000;
     const DEAD_WALLET: address = @0x0;
     const MEME_TOTAL_SUPPLY: u64 = 1_000_000_000_000_000_000;
     const MEME_DECIMALS: u8 = 9;
@@ -201,10 +201,10 @@ module memez_fun::memez_fun {
             migration_witness
         );
 
+        id.delete();
+
         transfer::public_transfer(admin_balance_x.into_coin(ctx), admin);
         transfer::public_transfer(admin_balance_y.into_coin(ctx), admin);
-
-        id.delete();
 
         (
             coin_x,
@@ -548,7 +548,7 @@ module memez_fun::memez_fun {
     }
 
     fun may_be_toggle_migrate<CoinX, CoinY>(state: &mut FunPoolState<CoinX, CoinY>, pool: address) {
-        let liquidity = if (state.is_x_virtual) state.liquidity_x else state.liquidity_y;
+        let liquidity = if (state.is_x_virtual) state.balance_x.value() else state.balance_y.value();
 
         if (liquidity >= state.migration_liquidity_target) {
             state.is_migrating = true;

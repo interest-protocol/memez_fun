@@ -27,19 +27,19 @@ module memez_fun::eth {
 }
 
 #[test_only]
-module memez_fun::usdc {
+module memez_fun::fud {
     use sui::coin;
 
-    public struct USDC has drop {}
+    public struct FUD has drop {}
 
     #[lint_allow(share_owned)]
-    fun init(witness: USDC, ctx: &mut TxContext) {
-        let (treasury_cap, metadata) = coin::create_currency<USDC>(
+    fun init(witness: FUD, ctx: &mut TxContext) {
+        let (treasury_cap, metadata) = coin::create_currency<FUD>(
             witness, 
-            6, 
-            b"USDC",
-            b"USD Coin", 
-            b"USD Stable Coin by Circle", 
+            9, 
+            b"FUD",
+            b"FUD", 
+            b"A special pug in a special chain", 
             option::none(), 
             ctx
         );
@@ -50,7 +50,35 @@ module memez_fun::usdc {
 
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
-        init(USDC {}, ctx);
+        init(FUD {}, ctx);
+    }
+}
+
+#[test_only]
+module memez_fun::bonk {
+    use sui::coin;
+
+    public struct BONK has drop {}
+
+    #[lint_allow(share_owned)]
+    fun init(witness: BONK, ctx: &mut TxContext) {
+        let (treasury_cap, metadata) = coin::create_currency<BONK>(
+            witness, 
+            6, 
+            b"BONK",
+            b"BONK", 
+            b"", 
+            option::none(), 
+            ctx
+        );
+
+        transfer::public_transfer(treasury_cap, tx_context::sender(ctx));
+        transfer::public_share_object(metadata);
+    }
+
+    #[test_only]
+    public fun init_for_testing(ctx: &mut TxContext) {
+        init(BONK {}, ctx);
     }
 }
 

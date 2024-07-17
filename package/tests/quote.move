@@ -1,5 +1,5 @@
 #[test_only]
-module memez_fun::memez_fun_test_quote {
+module memez_fun::tests_quote {
 
     use sui::{
         test_utils::assert_eq,
@@ -14,7 +14,7 @@ module memez_fun::memez_fun_test_quote {
         eth::ETH,
         meme::MEME,
         memez_fun_quote,
-        memez_fun_tests_set_up::start_world
+        tests_set_up::start_world
     };
 
     const PRECISION: u64 = 1_000_000_000;

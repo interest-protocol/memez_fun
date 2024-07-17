@@ -1,5 +1,5 @@
 #[test_only]
-module memez_fun::memez_fun_test_utils {
+module memez_fun::tests_utils {
 
     use sui::{
         sui::SUI,

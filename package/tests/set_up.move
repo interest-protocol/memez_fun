@@ -1,8 +1,9 @@
 #[test_only]
-module memez_fun::memez_fun_tests_set_up {
+module memez_fun::tests_set_up {
     // === Imports ===
 
     use sui::{
+        sui::SUI,
         coin::Coin,
         test_utils::destroy,
         test_scenario::{Self as ts, Scenario},
@@ -11,7 +12,6 @@ module memez_fun::memez_fun_tests_set_up {
 
     use memez_fun::{
         eth::{Self, ETH},
-        usdc::{Self, USDC},
         meme::{Self, MEME},
         memez_fun::{Self, FunPool, Admin, Config},
     };
@@ -35,7 +35,6 @@ module memez_fun::memez_fun_tests_set_up {
         config: Config,
         admin: Admin,
         eth_tc: TreasuryCap<ETH>,
-        usdc_tc: TreasuryCap<USDC>,
     }
 
     public fun start_world(): World {
@@ -45,13 +44,11 @@ module memez_fun::memez_fun_tests_set_up {
 
         memez_fun::init_for_testing(scenario.ctx());
         eth::init_for_testing(scenario.ctx());
-        usdc::init_for_testing(scenario.ctx());
         meme::init_for_testing(scenario.ctx());
 
         scenario.next_tx(OWNER);
 
         let eth_tc = scenario.take_from_sender<TreasuryCap<ETH>>();
-        let usdc_tc = scenario.take_from_sender<TreasuryCap<USDC>>();
         let meme_tc = scenario.take_from_sender<TreasuryCap<MEME>>();
         let meme_metadata = scenario.take_shared<CoinMetadata<MEME>>();
         let admin = scenario.take_from_sender<Admin>();
@@ -79,9 +76,25 @@ module memez_fun::memez_fun_tests_set_up {
             scenario,
             config,
             admin,
-            eth_tc,
-            usdc_tc
+            eth_tc
         }
+    }
+
+    public fun new<CoinA, CoinB, Witness: drop>(
+        self: &mut World, 
+        treasury_cap: TreasuryCap<CoinA>,
+        metadata: &CoinMetadata<CoinA>,
+        create_fee: Coin<SUI>, 
+        burn_percent: u64
+    ): FunPool {
+        memez_fun::new<CoinA, CoinB, Witness>(
+            &mut self.config,
+            treasury_cap,
+            metadata,
+            create_fee,
+            burn_percent,
+            self.scenario.ctx()
+        )
     }
 
     public fun swap<CoinIn, CoinOut>(self: &mut World, coin_in: Coin<CoinIn>, min_amount_out: u64): Coin<CoinOut> {
