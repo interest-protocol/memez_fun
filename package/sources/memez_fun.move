@@ -252,76 +252,76 @@ module memez_fun::memez_fun {
     }
 
     public fun balance_x<CoinX, CoinY>(pool: &FunPool): u64 {
-        let pool_state = pool_state<CoinX, CoinY>(pool);
+        let pool_state = pool.state<CoinX, CoinY>();
         pool_state.balance_x.value()
     }
 
     public fun balance_y<CoinX, CoinY>(pool: &FunPool): u64 {
-        let pool_state = pool_state<CoinX, CoinY>(pool);
+        let pool_state = pool.state<CoinX, CoinY>();
         pool_state.balance_y.value()
     }
 
     public fun admin_balance_x<CoinX, CoinY>(pool: &FunPool): u64 {
-        let pool_state = pool_state<CoinX, CoinY>(pool);
+        let pool_state = pool.state<CoinX, CoinY>();
         pool_state.admin_balance_x.value()
     }
 
     public fun admin_balance_y<CoinX, CoinY>(pool: &FunPool): u64 {
-        let pool_state = pool_state<CoinX, CoinY>(pool);
+        let pool_state = pool.state<CoinX, CoinY>();
         pool_state.admin_balance_y.value()
     }
 
     public use fun pool_swap_fee as FunPool.swap_fee;
     public fun pool_swap_fee<CoinX, CoinY>(pool: &FunPool): u64 {
-        let pool_state = pool_state<CoinX, CoinY>(pool);
+        let pool_state = pool.state<CoinX, CoinY>();
         pool_state.swap_fee
     }
 
     public fun liquidity_x<CoinX, CoinY>(pool: &FunPool): u64 {
-        let pool_state = pool_state<CoinX, CoinY>(pool);
+        let pool_state = pool.state<CoinX, CoinY>();
         pool_state.liquidity_x
     }
 
     public fun liquidity_y<CoinX, CoinY>(pool: &FunPool): u64 {
-        let pool_state = pool_state<CoinX, CoinY>(pool);
+        let pool_state = pool.state<CoinX, CoinY>();
         pool_state.liquidity_y
     }
 
     public fun is_migrating<CoinX, CoinY>(pool: &FunPool): bool {
-        let pool_state = pool_state<CoinX, CoinY>(pool);
+        let pool_state = pool.state<CoinX, CoinY>();
         pool_state.is_migrating
     }
 
     public fun is_x_virtual<CoinX, CoinY>(pool: &FunPool): bool {
-        let pool_state = pool_state<CoinX, CoinY>(pool);
+        let pool_state = pool.state<CoinX, CoinY>();
         pool_state.is_x_virtual
     }
 
     public fun burn_percent<CoinX, CoinY>(pool: &FunPool): u64 {
-        let pool_state = pool_state<CoinX, CoinY>(pool);
+        let pool_state = pool.state<CoinX, CoinY>();
         pool_state.burn_percent
     }
 
     public fun migration_liquidity_target<CoinX, CoinY>(pool: &FunPool): u64 {
-        let pool_state = pool_state<CoinX, CoinY>(pool);
+        let pool_state = pool.state<CoinX, CoinY>();
         pool_state.migration_liquidity_target
     }
 
     public fun migration_witness<CoinX, CoinY>(pool: &FunPool): TypeName {
-        let pool_state = pool_state<CoinX, CoinY>(pool);
+        let pool_state = pool.state<CoinX, CoinY>();
         pool_state.migration_witness
     }
 
     public use fun pool_admin as FunPool.admin;
     public fun pool_admin<CoinX, CoinY>(pool: &FunPool): address {
-        let pool_state = pool_state<CoinX, CoinY>(pool);
+        let pool_state = pool.state<CoinX, CoinY>();
         pool_state.admin
     }
 
     // === Admin Functions ===
 
     public fun take_fees<CoinX, CoinY>(pool: &mut FunPool, _: &Admin, ctx: &mut TxContext): (Coin<CoinX>, Coin<CoinY>) {
-        let pool_state = pool_state_mut<CoinX, CoinY>(pool);
+        let pool_state = pool.state_mut<CoinX, CoinY>();
 
         (
             pool_state.admin_balance_x.withdraw_all().into_coin(ctx),
@@ -430,7 +430,7 @@ module memez_fun::memez_fun {
         ctx: &mut TxContext
     ): Coin<CoinY> {
         let pool_address = pool.id.to_address();
-        let pool_state = pool_state_mut<CoinX, CoinY>(pool);
+        let pool_state = pool.state_mut<CoinX, CoinY>();
         assert!(!pool_state.is_migrating, errors::pool_is_migrating());
 
         let coin_in_amount = coin_x.value();
@@ -476,7 +476,7 @@ module memez_fun::memez_fun {
         ctx: &mut TxContext
     ): Coin<CoinX> {
         let pool_address = pool.id.to_address();
-        let pool_state = pool_state_mut<CoinX, CoinY>(pool);
+        let pool_state = pool.state_mut<CoinX, CoinY>();
         assert!(!pool_state.is_migrating, errors::pool_is_migrating());
 
         let coin_in_amount = coin_y.value();
@@ -575,11 +575,11 @@ module memez_fun::memez_fun {
             type_name::get<PoolKey<CoinB, CoinA>>()
     }
 
-    fun pool_state<CoinX, CoinY>(pool: &FunPool): &FunPoolState<CoinX, CoinY> {
+    fun state<CoinX, CoinY>(pool: &FunPool): &FunPoolState<CoinX, CoinY> {
         df::borrow(&pool.id, StateKey {})
     }
 
-    fun pool_state_mut<CoinX, CoinY>(pool: &mut FunPool): &mut FunPoolState<CoinX, CoinY> {
+    fun state_mut<CoinX, CoinY>(pool: &mut FunPool): &mut FunPoolState<CoinX, CoinY> {
         df::borrow_mut(&mut pool.id,StateKey {})
     }
 
