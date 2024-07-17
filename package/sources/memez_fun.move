@@ -23,8 +23,6 @@ module memez_fun::memez_fun {
         memez_fun_events as events,
     };
 
-    // === Errors ===
-
     // === Constants ===
     
     const FIVE_SUI: u64 = 5_000_000_000;
@@ -179,8 +177,6 @@ module memez_fun::memez_fun {
         assert!(migration_witness == type_name::get<Witness>(), errors::incorrect_migration_witness());
         assert!(is_migrating, errors::must_be_migrating());
 
-        let FunPool { id } = pool;
-
         let mut coin_x = balance_x.into_coin(ctx);
         let mut coin_y = balance_y.into_coin(ctx);
 
@@ -191,6 +187,8 @@ module memez_fun::memez_fun {
             let burn_value = mul_div_up(coin_x.value(), burn_percent, PRECISION);
             transfer::public_transfer(coin_x.split(burn_value, ctx), DEAD_WALLET);
         }; 
+
+        let FunPool { id } = pool;
 
         events::migrated(
             id.to_address(), 
