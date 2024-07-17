@@ -33,10 +33,11 @@ module memez_fun::memez_fun {
     const INITIAL_SWAP_FEE: u64 = 3_000_000;
 
     //@dev 1e9 === 100%
-    const FEE_PRECISION: u64 = 1_000_000_000;
+    const PRECISION: u64 = 1_000_000_000;
     // 2%
     const MAX_SWAP_FEE: u64 = 20_000_000;
-
+    // 50%
+    const MAX_BURN_PERCENT: u64 = 500_000_000;
     const DEAD_WALLET: address = @0x0;
     const MEME_TOTAL_SUPPLY: u64 = 1_000_000_000_000_000_000;
     const MEME_DECIMALS: u8 = 9;
@@ -73,6 +74,7 @@ module memez_fun::memez_fun {
         liquidity_y: u64,
         is_migrating: bool,
         is_x_virtual: bool,
+        burn_percent: u64,
         migration_liquidity_target: u64,
         migration_witness: TypeName,
         admin: address
@@ -105,6 +107,7 @@ module memez_fun::memez_fun {
         mut treasury_cap: TreasuryCap<CoinA>,
         metadata: &CoinMetadata<CoinA>,
         create_fee: Coin<SUI>,
+        burn_percent: u64,
         ctx: &mut TxContext
     ): FunPool {
         assert!(config.whitelist.contains(&type_name::get<Witness>()), errors::witness_not_whitelisted_to_migrate());
@@ -116,6 +119,7 @@ module memez_fun::memez_fun {
             && config.migration_liquidity_config.contains(&type_name::get<CoinB>()),
             errors::no_config_available()
         );
+        assert!(MAX_BURN_PERCENT >= burn_percent, errors::burn_percent_is_too_high());
 
         let balance_a = treasury_cap.mint(MEME_TOTAL_SUPPLY, ctx).into_balance();
         transfer::public_transfer(treasury_cap, DEAD_WALLET);
@@ -124,9 +128,9 @@ module memez_fun::memez_fun {
 
 
         if (utils::are_coins_ordered<CoinA, CoinB>())
-            new_impl<CoinA, CoinB, Witness>(config, balance_a, balance_b,  false, ctx)
+            new_impl<CoinA, CoinB, Witness>(config, balance_a, balance_b,  false, burn_percent, ctx)
         else 
-            new_impl<CoinB, CoinA, Witness>(config, balance_b, balance_a,  true, ctx)
+            new_impl<CoinB, CoinA, Witness>(config, balance_b, balance_a,  true, burn_percent, ctx)
     }
 
     public fun swap<CoinIn, CoinOut>(
@@ -165,10 +169,11 @@ module memez_fun::memez_fun {
             liquidity_x: _,
             liquidity_y: _,
             is_migrating,
-            is_x_virtual: _,
+            is_x_virtual,
             migration_liquidity_target: _,
             admin,
-            migration_witness
+            migration_witness,
+            burn_percent
         } = state;
 
         assert!(migration_witness == type_name::get<Witness>(), errors::incorrect_migration_witness());
@@ -192,9 +197,20 @@ module memez_fun::memez_fun {
         transfer::public_transfer(admin_balance_x.into_coin(ctx), admin);
         transfer::public_transfer(admin_balance_y.into_coin(ctx), admin);
 
+        let mut coin_x = balance_x.into_coin(ctx);
+        let mut coin_y = balance_y.into_coin(ctx);
+
+        if (is_x_virtual) {
+            let burn_value = mul_div_up(coin_y.value(), burn_percent, PRECISION);
+            transfer::public_transfer(coin_y.split(burn_value, ctx), DEAD_WALLET)
+        } else {
+            let burn_value = mul_div_up(coin_x.value(), burn_percent, PRECISION);
+            transfer::public_transfer(coin_x.split(burn_value, ctx), DEAD_WALLET);
+        }; 
+
         (
-            balance_x.into_coin(ctx),
-            balance_y.into_coin(ctx)
+            coin_x,
+            coin_y
         )
     }
 
@@ -283,6 +299,11 @@ module memez_fun::memez_fun {
         pool_state.is_x_virtual
     }
 
+    public fun burn_percent<CoinX, CoinY>(pool: &FunPool): u64 {
+        let pool_state = pool_state<CoinX, CoinY>(pool);
+        pool_state.burn_percent
+    }
+
     public fun migration_liquidity_target<CoinX, CoinY>(pool: &FunPool): u64 {
         let pool_state = pool_state<CoinX, CoinY>(pool);
         pool_state.migration_liquidity_target
@@ -354,6 +375,7 @@ module memez_fun::memez_fun {
         balance_x: Balance<CoinX>,
         balance_y: Balance<CoinY>,
         is_x_virtual: bool,
+        burn_percent: u64,
         ctx: &mut TxContext
     ): FunPool {
         let balance_x_value = balance_x.value();
@@ -376,6 +398,7 @@ module memez_fun::memez_fun {
             is_x_virtual,
             migration_liquidity_target,
             admin: config.admin,
+            burn_percent,
             migration_witness: type_name::get<Witness>() 
         };
 
@@ -506,9 +529,8 @@ module memez_fun::memez_fun {
         );
 
         let prev_k = invariant_(balance_x, balance_y);
-        
 
-        let fee = mul_div_up(coin_in_amount, pool_state.swap_fee, FEE_PRECISION);
+        let fee = mul_div_up(coin_in_amount, pool_state.swap_fee, PRECISION);
 
         let coin_in_amount = coin_in_amount - fee;
 
@@ -529,7 +551,7 @@ module memez_fun::memez_fun {
     }
 
     fun may_be_toggle_migrate<CoinX, CoinY>(state: &mut FunPoolState<CoinX, CoinY>, pool: address) {
-        let liquidity = if (state.is_x_virtual) state.liquidity_y else state.liquidity_x;
+        let liquidity = if (state.is_x_virtual) state.liquidity_x else state.liquidity_y;
 
         if (liquidity >= state.migration_liquidity_target) {
             state.is_migrating = true;

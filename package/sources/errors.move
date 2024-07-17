@@ -15,6 +15,7 @@ module memez_fun::memez_fun_errors {
     const MUST_BE_MIGRATING: u64 = 10;
     const INCORRECT_MIGRATION_WITNESS: u64 = 11;
     const SWAP_FEE_IS_TOO_HIGH: u64 = 12;
+    const BURN_PERCENT_IS_TOO_HIGH: u64 = 13;
 
     // === Public-Package Functions ===
 
@@ -68,5 +69,9 @@ module memez_fun::memez_fun_errors {
 
     public(package) fun swap_fee_is_too_high(): u64 {
         SWAP_FEE_IS_TOO_HIGH
+    }
+
+    public(package) fun burn_percent_is_too_high(): u64 {
+        BURN_PERCENT_IS_TOO_HIGH
     }
 }

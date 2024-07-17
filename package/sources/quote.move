@@ -6,9 +6,9 @@ module memez_fun::memez_fun_quote {
         memez_fun_utils as utils
     };
 
-    use memez_v2_invariant::memez_v2_invariant::{get_amount_in, get_amount_out};
+    use memez_v2_invariant::memez_v2_invariant::get_amount_out;
 
-    use suitears::math64::mul_div_up;
+    use suitears::math64::{mul_div_up, min};
 
     // === Constants ===
 
@@ -19,42 +19,63 @@ module memez_fun::memez_fun_quote {
     public fun amount_out<CoinIn, CoinOut>(pool: &FunPool, amount_in: u64): u64 { 
 
         if (utils::is_coin_x<CoinIn, CoinOut>()) {
-            let (balance_x, balance_y, swap_fee) = get_pool_data<CoinIn, CoinOut>(pool);
+            let (liquidity_x, liquidity_y, _, balance_y, swap_fee) = get_pool_data<CoinIn, CoinOut>(pool);
             let fee = mul_div_up(amount_in, swap_fee, FEE_PRECISION);
 
-            get_amount_out(amount_in - fee, balance_x, balance_y)
+            min(get_amount_out(amount_in - fee, liquidity_x, liquidity_y), balance_y)
         } else {
-            let (balance_x, balance_y, swap_fee) = get_pool_data<CoinOut, CoinIn>(pool);
+            let (liquidity_x, liquidity_y, balance_x, _, swap_fee) = get_pool_data<CoinOut, CoinIn>(pool);
             let fee = mul_div_up(amount_in, swap_fee, FEE_PRECISION);
 
-            get_amount_out(amount_in - fee, balance_y, balance_x)
+            min(get_amount_out(amount_in - fee, liquidity_y, liquidity_x), balance_x)
         }
     }
 
     public fun amount_in<CoinIn, CoinOut>(pool: &FunPool, amount_out: u64): u64 { 
 
         if (utils::is_coin_x<CoinIn, CoinOut>()) {
-            let (balance_x, balance_y, swap_fee) = get_pool_data<CoinIn, CoinOut>(pool);
+            let (liquidity_x, liquidity_y, _, balance_y, swap_fee) = get_pool_data<CoinIn, CoinOut>(pool);
 
-            get_initial_amount(get_amount_in(amount_out, balance_x, balance_y), swap_fee)
+            let amount_out = min(amount_out, balance_y);
+
+            if (amount_out == 0) return 0;
+
+            get_amount_in(amount_out, liquidity_x, liquidity_y, swap_fee)
         } else {
-            let (balance_x, balance_y, swap_fee) = get_pool_data<CoinOut, CoinIn>(pool);
+            let (liquidity_x, liquidity_y, balance_x, _, swap_fee) = get_pool_data<CoinOut, CoinIn>(pool);
 
-            get_initial_amount(get_amount_in(amount_out, balance_y, balance_x), swap_fee)
+            let amount_out = min(amount_out, balance_x);
+
+            if (amount_out == 0) return 0;
+
+            get_amount_in(amount_out, liquidity_y, liquidity_x, swap_fee)
         }
     }
 
     // === Private Functions ===
 
-    fun get_initial_amount(x: u64, percent: u64): u64 {
-        mul_div_up(x, FEE_PRECISION, FEE_PRECISION - percent)
+    fun get_amount_in(amount_out: u64, balance_in: u64, balance_out: u64, fee: u64): u64 {
+        let (amount_out, balance_in, balance_out, fee, precision) = (
+            (amount_out as u256),
+            (balance_in as u256),
+            (balance_out as u256),
+            (fee as u256),
+            (FEE_PRECISION as u256)
+        );
+
+        let numerator = balance_in * amount_out * precision;
+        let denominator = (balance_out - amount_out) * (precision - fee);
+        
+        (((numerator / denominator) + 1) as u64)
     }
 
-    fun get_pool_data<CoinX, CoinY>(pool: &FunPool): (u64, u64, u64) {
+    fun get_pool_data<CoinX, CoinY>(pool: &FunPool): (u64, u64, u64, u64, u64) {
         let liquidity_x = pool.liquidity_x<CoinX, CoinY>();
         let liquidity_y = pool.liquidity_y<CoinX, CoinY>();
+        let balance_x = pool.balance_x<CoinX, CoinY>();
+        let balance_y = pool.balance_y<CoinX, CoinY>();
         let swap_fee = pool.swap_fee<CoinX, CoinY>(); 
 
-        (liquidity_x, liquidity_y, swap_fee)
+        (liquidity_x, liquidity_y, balance_x, balance_y, swap_fee)
   }
 }
