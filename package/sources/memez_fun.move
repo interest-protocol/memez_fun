@@ -181,22 +181,6 @@ module memez_fun::memez_fun {
 
         let FunPool { id } = pool;
 
-        events::migrated(
-            id.to_address(), 
-            type_name::get<CoinX>(),
-            type_name::get<CoinY>(),
-            balance_x.value(),
-            balance_y.value(),
-            admin_balance_x.value(),
-            admin_balance_y.value(),
-            migration_witness
-        );
-
-        id.delete();
-
-        transfer::public_transfer(admin_balance_x.into_coin(ctx), admin);
-        transfer::public_transfer(admin_balance_y.into_coin(ctx), admin);
-
         let mut coin_x = balance_x.into_coin(ctx);
         let mut coin_y = balance_y.into_coin(ctx);
 
@@ -207,6 +191,22 @@ module memez_fun::memez_fun {
             let burn_value = mul_div_up(coin_x.value(), burn_percent, PRECISION);
             transfer::public_transfer(coin_x.split(burn_value, ctx), DEAD_WALLET);
         }; 
+
+        events::migrated(
+            id.to_address(), 
+            type_name::get<CoinX>(),
+            type_name::get<CoinY>(),
+            coin_x.value(),
+            coin_y.value(),
+            admin_balance_x.value(),
+            admin_balance_y.value(),
+            migration_witness
+        );
+
+        transfer::public_transfer(admin_balance_x.into_coin(ctx), admin);
+        transfer::public_transfer(admin_balance_y.into_coin(ctx), admin);
+
+        id.delete();
 
         (
             coin_x,
