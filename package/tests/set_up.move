@@ -30,7 +30,7 @@ module memez_fun::memez_fun_tests_set_up {
     public struct IPXWitness has drop {}
 
     public struct World {
-        pool: FunPool,
+        pool: vector<FunPool>,
         scenario: Scenario,
         config: Config,
         admin: Admin,
@@ -75,7 +75,7 @@ module memez_fun::memez_fun_tests_set_up {
         ts::return_shared(meme_metadata);
 
         World {
-            pool,
+            pool: vector[pool],
             scenario,
             config,
             admin,
@@ -85,15 +85,55 @@ module memez_fun::memez_fun_tests_set_up {
     }
 
     public fun swap<CoinIn, CoinOut>(self: &mut World, coin_in: Coin<CoinIn>, min_amount_out: u64): Coin<CoinOut> {
-        self.pool.swap<CoinIn, CoinOut>(
+        self.pool[0].swap<CoinIn, CoinOut>(
             coin_in,
             min_amount_out,
             self.scenario.ctx()
         )
     }
 
+    public fun migrate<CoinX, CoinY, Witness: drop>(self: &mut World, witness: Witness): (Coin<CoinX>, Coin<CoinY>) {
+        let pool = self.pool.pop_back();
+        pool.migrate<CoinX, CoinY, Witness>(
+            witness,
+            self.scenario.ctx()
+        )
+    }
+
+    public fun take_fees<CoinX, CoinY>(self: &mut World): (Coin<CoinX>, Coin<CoinY>) {
+        self.pool[0].take_fees(&self.admin, self.scenario.ctx())
+    }
+
+    public fun update_admin(self: &mut World, admin: address) {
+        self.config.update_admin(&self.admin, admin)
+    }
+
+    public fun update_create_fee(self: &mut World, fee: u64) {
+        self.config.update_create_fee(&self.admin, fee)
+    }
+
+    public fun update_swap_fee(self: &mut World, fee: u64) {
+        self.config.update_swap_fee(&self.admin, fee)
+    }
+
+    public fun update_initial_virtual_liquidity<CoinType>(self: &mut World, liquidity: u64) {
+        self.config.update_initial_virtual_liquidity<CoinType>(&self.admin, liquidity);
+    }
+
+    public fun update_migration_liquidity<CoinType>(self: &mut World, liquidity: u64) {
+        self.config.update_migration_liquidity<CoinType>(&self.admin, liquidity);
+    }
+
+    public fun add_migrator<Witness>(self: &mut World) {
+        self.config.add_migrator<Witness>(&self.admin);
+    }
+
+    public fun remove_migrator<Witness>(self: &mut World) {
+        self.config.remove_migrator<Witness>(&self.admin);
+    }
+
     public fun pool(self: &mut World): &mut FunPool {
-        &mut self.pool
+        &mut self.pool[0]
     }
 
     public fun config(self: &mut World): &mut Config {
