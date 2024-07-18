@@ -490,4 +490,40 @@ module memez_fun::tests_memez_fun {
 
         world.end();
     }
+
+    #[test]
+    #[expected_failure(abort_code = memez_fun_errors::INCORRECT_MIGRATION_WITNESS, location = memez_fun)]
+    fun test_migrate_error_incorrect_migration_witness() {
+        let mut world = start_world();
+
+        // Trigger migration        
+        let coin_in = mint_for_testing<ETH>(25 * PRECISION, world.scenario().ctx());
+
+        world.swap<ETH, MEME>(coin_in, 0).burn_for_testing();
+
+        let (coin_x, coin_y) = world.migrate<ETH, MEME, InvalidWitness>(InvalidWitness {});
+
+        coin_x.burn_for_testing();
+        coin_y.burn_for_testing();
+
+        world.end();
+    }
+
+    #[test]
+    #[expected_failure(abort_code = memez_fun_errors::MUST_BE_MIGRATING, location = memez_fun)]
+    fun test_migrate_error_must_be_migrating() {
+        let mut world = start_world();
+
+        // Trigger migration        
+        let coin_in = mint_for_testing<ETH>(10 * PRECISION, world.scenario().ctx());
+
+        world.swap<ETH, MEME>(coin_in, 0).burn_for_testing();
+
+        let (coin_x, coin_y) = world.migrate<ETH, MEME, IPXWitness>(witness());
+
+        coin_x.burn_for_testing();
+        coin_y.burn_for_testing();
+
+        world.end();
+    }
 }
