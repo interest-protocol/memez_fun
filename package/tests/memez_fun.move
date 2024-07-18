@@ -21,7 +21,7 @@ module memez_fun::tests_memez_fun {
         fud::{Self, FUD},
         memez_fun_errors,
         bonk::{Self, BONK},
-        tests_set_up::{start_world, people, IPXWitness}
+        tests_set_up::{start_world, people, witness, IPXWitness}
     };
 
     const MAX_BURN_PERCENT: u64 = 700_000_000;
@@ -182,6 +182,44 @@ module memez_fun::tests_memez_fun {
         assert_eq(world.pool().is_migrating<ETH, MEME>(), true);
 
         world.end();     
+    }
+
+    #[test]
+    fun test_migrate() {
+        let mut world = start_world();
+        let (owner, _) = people();
+
+        // Trigger migration        
+        let coin_in = mint_for_testing<ETH>(25 * PRECISION, world.scenario().ctx());
+
+        world.swap<ETH, MEME>(coin_in, 0).burn_for_testing();
+
+        let admin = world.pool().admin<ETH, MEME>();
+        let admin_balance_x = world.pool().admin_balance_x<ETH, MEME>();
+        let admin_balance_y = world.pool().admin_balance_y<ETH, MEME>();
+
+        let eth_balance = world.pool().balance_x<ETH, MEME>();
+        let meme_balance = world.pool().balance_y<ETH, MEME>();
+        let burn_percent = world.pool().burn_percent<ETH, MEME>();
+
+        let (coin_x, coin_y) = world.migrate<ETH, MEME, IPXWitness>(witness());
+
+        let burn_amount = mul_div_up(meme_balance, burn_percent, PRECISION);
+
+        assert_eq(coin_x.burn_for_testing(), eth_balance);
+        assert_eq(coin_y.burn_for_testing(), meme_balance - burn_amount);
+
+        world.scenario().next_tx(owner);
+
+        let admin_coin_eth = world.scenario().take_from_address<Coin<ETH>>(admin); 
+        let admin_coin_meme = world.scenario().take_from_address<Coin<MEME>>(admin);
+        let burnt_meme = world.scenario().take_from_address<Coin<MEME>>(@0x0); 
+
+        assert_eq(admin_coin_eth.burn_for_testing(), admin_balance_x);
+        assert_eq(admin_coin_meme.burn_for_testing(), admin_balance_y);
+        assert_eq(burnt_meme.burn_for_testing(), burn_amount);
+
+        world.end();
     }
 
     #[test]

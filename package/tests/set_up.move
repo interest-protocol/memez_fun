@@ -27,7 +27,7 @@ module memez_fun::tests_set_up {
 
     public struct AFWitness has drop {}
 
-    public struct IPXWitness has drop {}
+    public struct IPXWitness has drop, copy {}
 
     public struct World {
         pool: vector<FunPool>,
@@ -159,6 +159,10 @@ module memez_fun::tests_set_up {
 
     public fun admin(self: &mut World): &mut Admin {
         &mut self.admin
+    }
+
+    public fun witness(): IPXWitness {
+        IPXWitness {}
     }
 
     public fun end(self: World) {
