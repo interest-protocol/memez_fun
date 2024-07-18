@@ -20,6 +20,7 @@ module memez_fun::tests_memez_fun {
         meme::MEME,
         fud::{Self, FUD},
         memez_fun_errors,
+        cat::{Self, CAT},
         bonk::{Self, BONK},
         tests_set_up::{start_world, people, witness, IPXWitness}
     };
@@ -28,6 +29,7 @@ module memez_fun::tests_memez_fun {
     const INITIAL_SWAP_FEE: u64 = 3_000_000;
     const MEME_TOTAL_SUPPLY: u64 = 1_000_000_000_000_000_000;
     const PRECISION: u64 = 1_000_000_000;
+    const MAX_SWAP_FEE: u64 = 20_000_000;
     // 20%
     const BURN_PERCENT: u64 = 200_000_000;
     const ADMIN: address = @0xA11c3;
@@ -54,6 +56,17 @@ module memez_fun::tests_memez_fun {
         assert_eq(world.pool().migration_liquidity_target<ETH, MEME>(), 20_000_000_000);
         assert_eq(world.pool().migration_witness<ETH, MEME>(), type_name::get<IPXWitness>());
         assert_eq(world.pool().admin<ETH, MEME>(), ADMIN);
+        assert_eq(world.config().pools().length(), 1);
+        let pool_address = world.pool().address();
+        assert_eq(*world.config().pool_address<ETH, MEME>().borrow(), pool_address);
+        assert_eq(world.config().pool_address<CAT, ETH>().is_none(), true);
+        assert_eq(world.config().create_fee(), FIVE_SUI);
+        assert_eq(world.config().swap_fee(), INITIAL_SWAP_FEE);
+        assert_eq(*world.config().initial_virtual_liquidity_config().get(&type_name::get<ETH>()), 3_000_000_000);
+        assert_eq(*world.config().migration_liquidity_config().get(&type_name::get<ETH>()), 20_000_000_000);
+        assert_eq(world.config().exists_<ETH, MEME>(), true);
+        assert_eq(world.config().exists_<CAT, ETH>(), false);
+        assert_eq(world.config().admin(), ADMIN);
 
         world.scenario().next_tx(owner);
 
@@ -223,6 +236,200 @@ module memez_fun::tests_memez_fun {
     }
 
     #[test]
+    fun test_new_y_virtual_liquidity() {
+        let mut world = start_world();
+        let (owner, _) = people();
+
+        cat::init_for_testing(world.scenario().ctx());
+
+        world.scenario().next_tx(owner);
+
+        let cat_treasury_cap = world.scenario().take_from_sender<TreasuryCap<CAT>>(); 
+        let metadata_cat = world.scenario().take_shared<CoinMetadata<CAT>>();
+
+        let create_fee = mint_for_testing(5_000_000_000, world.scenario().ctx());
+
+       let pool = world.new<CAT, ETH, IPXWitness>(
+            cat_treasury_cap,
+            &metadata_cat,
+            create_fee,
+            BURN_PERCENT
+        );
+
+        assert_eq(pool.balance_x<CAT, ETH>(), MEME_TOTAL_SUPPLY);
+        assert_eq(pool.balance_y<CAT, ETH>(), 0);
+        assert_eq(pool.liquidity_x<CAT, ETH>(), MEME_TOTAL_SUPPLY);
+        assert_eq(pool.liquidity_y<CAT, ETH>(), 3_000_000_000);
+        assert_eq(pool.is_x_virtual<CAT, ETH>(), false);
+
+        pool.share();
+
+        destroy(metadata_cat);
+
+        world.end();
+    }
+
+    #[test]
+    fun test_migrate_y_virtual_liquidity() {
+        let mut world = start_world();
+        let (owner, _) = people();
+
+        cat::init_for_testing(world.scenario().ctx());
+
+        world.scenario().next_tx(owner);
+
+        let cat_treasury_cap = world.scenario().take_from_sender<TreasuryCap<CAT>>(); 
+        let metadata_cat = world.scenario().take_shared<CoinMetadata<CAT>>();
+
+        let create_fee = mint_for_testing(5_000_000_000, world.scenario().ctx());
+
+       let mut pool = world.new<CAT, ETH, IPXWitness>(
+            cat_treasury_cap,
+            &metadata_cat,
+            create_fee,
+            BURN_PERCENT
+        );
+
+        ts::return_shared(metadata_cat);
+
+        world.scenario().next_tx(owner);
+
+        assert_eq(pool.is_x_virtual<CAT, ETH>(), false);
+
+        // Trigger migration        
+        let coin_in = mint_for_testing<ETH>(30 * PRECISION, world.scenario().ctx());
+    
+        destroy(memez_fun::swap<ETH, CAT>(&mut pool, coin_in, 0, world.scenario().ctx()));
+        
+        let burn_percent = pool.burn_percent<CAT, ETH>();
+        let meme_balance = pool.balance_x<CAT, ETH>();
+        let burn_amount = mul_div_up(meme_balance, burn_percent, PRECISION);
+
+        let (coin_x, coin_y) = memez_fun::migrate<CAT, ETH, IPXWitness>(
+            pool, witness(), 
+            world.scenario().ctx()
+        );
+
+        coin_x.burn_for_testing();
+        coin_y.burn_for_testing();
+
+        world.scenario().next_tx(owner);
+
+        let burnt_meme = world.scenario().take_from_address<Coin<CAT>>(@0x0);
+
+        assert_eq(burnt_meme.burn_for_testing(), burn_amount);
+
+        world.end();
+    }
+
+    #[test]
+    fun test_migrator_admin_fns() {
+        let mut world = start_world();
+
+        let name = type_name::get<InvalidWitness>();
+
+        assert_eq(world.config().whitelist().contains(&name), false);
+
+        world.add_migrator<InvalidWitness>();
+
+        assert_eq(world.config().whitelist().contains(&name), true);
+
+        world.remove_migrator<InvalidWitness>();
+
+        assert_eq(world.config().whitelist().contains(&name), false);
+
+        world.end();
+    }
+
+    #[test]
+    fun test_admin_fns() {
+        let mut world = start_world();
+
+        let swap_fee = world.config().swap_fee();
+
+        assert_eq(swap_fee, INITIAL_SWAP_FEE);
+        
+        world.update_swap_fee(MAX_SWAP_FEE);
+
+        let swap_fee = world.config().swap_fee();
+
+        assert_eq(swap_fee, MAX_SWAP_FEE);
+
+        let create_fee = world.config().create_fee();
+
+        assert_eq(create_fee, FIVE_SUI);
+
+        world.update_create_fee(FIVE_SUI * 3);
+
+        let create_fee = world.config().create_fee();
+
+        assert_eq(create_fee, FIVE_SUI * 3);
+
+        let admin = world.config().admin();
+
+        assert_eq(admin, ADMIN);
+
+        world.update_admin(@0x2);
+
+        let admin = world.config().admin();
+
+        assert_eq(admin, @0x2);
+
+        let coin_in = mint_for_testing(2_000_000_000, world.scenario().ctx());
+        world.swap<ETH, MEME>(coin_in, 0).burn_for_testing();
+        let coin_in = mint_for_testing(2_000_000_000, world.scenario().ctx());
+        world.swap<ETH, MEME>(coin_in, 0).burn_for_testing();
+        let coin_in = mint_for_testing(2_000_000_000, world.scenario().ctx());
+        world.swap<ETH, MEME>(coin_in, 0).burn_for_testing();
+        let coin_in = mint_for_testing(2_000_000_000, world.scenario().ctx());
+        world.swap<ETH, MEME>(coin_in, 0).burn_for_testing();
+
+        let coin_in = mint_for_testing(250_000_000_000, world.scenario().ctx());
+        world.swap<MEME, ETH>(coin_in, 0).burn_for_testing();
+        let coin_in = mint_for_testing(250_000_000_000, world.scenario().ctx());
+        world.swap<MEME, ETH>(coin_in, 0).burn_for_testing();
+        let coin_in = mint_for_testing(250_000_000_000, world.scenario().ctx());
+        world.swap<MEME, ETH>(coin_in, 0).burn_for_testing();
+
+        let admin_balance_x = world.pool().admin_balance_x<ETH, MEME>();
+        let admin_balance_y = world.pool().admin_balance_y<ETH, MEME>();
+
+        assert_eq(admin_balance_x > 0, true);
+        assert_eq(admin_balance_y > 0, true);
+ 
+        let (coin_eth, coin_meme) = world.take_fees<ETH, MEME>();
+
+        assert_eq(coin_eth.burn_for_testing(), admin_balance_x);
+        assert_eq(coin_meme.burn_for_testing(), admin_balance_y);
+
+        let admin_balance_x = world.pool().admin_balance_x<ETH, MEME>();
+        let admin_balance_y = world.pool().admin_balance_y<ETH, MEME>();
+
+        assert_eq(admin_balance_x, 0);
+        assert_eq(admin_balance_y, 0);
+
+        let (coin_eth, coin_meme) = world.take_fees<ETH, MEME>();
+
+        assert_eq(coin_eth.burn_for_testing(), admin_balance_x);
+        assert_eq(coin_meme.burn_for_testing(), admin_balance_y);
+
+        world.end();
+    }
+
+    #[test]
+    fun test_make_pool_key() {
+        let key1 = memez_fun::make_pool_key_for_testing<ETH, MEME>();
+        let key2 = memez_fun::make_pool_key_for_testing<MEME, ETH>();
+
+        assert_eq(key1, key2);
+
+        let key1 = memez_fun::make_pool_key_for_testing<ETH, CAT>();
+        let key2 = memez_fun::make_pool_key_for_testing<CAT, ETH>();
+
+        assert_eq(key1, key2);
+    }
+
+    #[test]
     #[expected_failure(abort_code = memez_fun_errors::NO_ZERO_VALUE, location = memez_fun)]
     fun test_swap_error_no_zero_value() {
         let mut world = start_world();
@@ -236,7 +443,7 @@ module memez_fun::tests_memez_fun {
 
     #[test]
     #[expected_failure(abort_code = memez_fun_errors::SLIPPAGE, location = memez_fun)]
-    fun test_swap_error_slippage() {
+    fun test_swap_x_error_slippage() {
         let mut world = start_world();
 
         let eth_liquidity = world.pool().liquidity_x<ETH, MEME>();
@@ -248,6 +455,24 @@ module memez_fun::tests_memez_fun {
         let expected_amount_out = get_amount_out((2 * PRECISION) - fee, eth_liquidity, meme_liquidity);
 
         world.swap<ETH, MEME>(coin_in, expected_amount_out + 1).burn_for_testing();
+
+        world.end();     
+    }
+
+    #[test]
+    #[expected_failure(abort_code = memez_fun_errors::SLIPPAGE, location = memez_fun)]
+    fun test_swap_y_error_slippage() {
+        let mut world = start_world();
+
+        let eth_liquidity = world.pool().liquidity_x<ETH, MEME>();
+        let meme_liquidity = world.pool().liquidity_y<ETH, MEME>();
+        let swap_fee = world.pool().swap_fee<ETH, MEME>();
+
+        let coin_in = mint_for_testing<MEME>(200 * PRECISION, world.scenario().ctx());
+        let fee = mul_div_up(200 * PRECISION, swap_fee, PRECISION);
+        let expected_amount_out = get_amount_out((200 * PRECISION) - fee, eth_liquidity, meme_liquidity);
+
+        world.swap<MEME, ETH>(coin_in, expected_amount_out + 1).burn_for_testing();
 
         world.end();     
     }
@@ -505,6 +730,16 @@ module memez_fun::tests_memez_fun {
 
         coin_x.burn_for_testing();
         coin_y.burn_for_testing();
+
+        world.end();
+    }
+
+    #[test]
+    #[expected_failure(abort_code = memez_fun_errors::SWAP_FEE_IS_TOO_HIGH, location = memez_fun)]
+    fun test_update_swap_fee_error_fee_is_too_high() {
+        let mut world = start_world();
+
+        world.update_swap_fee(MAX_SWAP_FEE + 1);
 
         world.end();
     }

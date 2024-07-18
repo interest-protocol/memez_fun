@@ -27,6 +27,34 @@ module memez_fun::eth {
 }
 
 #[test_only]
+module memez_fun::cat{
+    use sui::coin;
+
+    public struct CAT has drop {}
+
+    #[lint_allow(share_owned)]
+    fun init(witness: CAT, ctx: &mut TxContext) {
+        let (treasury_cap, metadata) = coin::create_currency<CAT>(
+            witness, 
+            9, 
+            b"CAT",
+            b"CAT", 
+            b"Some solana cat coin", 
+            option::none(), 
+            ctx
+        );
+
+        transfer::public_transfer(treasury_cap, tx_context::sender(ctx));
+        transfer::public_share_object(metadata);
+    }
+
+    #[test_only]
+    public fun init_for_testing(ctx: &mut TxContext) {
+        init(CAT {}, ctx);
+    }
+}
+
+#[test_only]
 module memez_fun::fud {
     use sui::coin;
 

@@ -218,8 +218,8 @@ module memez_fun::memez_fun {
         &config.pools
     }
 
-    public use fun registry_admin as Config.admin;
-    public fun registry_admin(config: &Config): address {
+    public use fun config_admin as Config.admin;
+    public fun config_admin(config: &Config): address {
         config.admin
     }
 
@@ -233,6 +233,10 @@ module memez_fun::memez_fun {
 
     public fun create_fee(config: &Config): u64 {
         config.create_fee
+    }
+
+    public fun whitelist(config: &Config): vector<TypeName> {
+        config.whitelist.into_keys()
     }
 
     public fun swap_fee(config: &Config): u64 {
@@ -339,7 +343,7 @@ module memez_fun::memez_fun {
 
     public fun update_swap_fee(config: &mut Config, _: &Admin, fee: u64) {
         assert!(MAX_SWAP_FEE >= fee, errors::swap_fee_is_too_high());
-        config.create_fee = fee;
+        config.swap_fee = fee;
     }
 
     public fun update_initial_virtual_liquidity<CoinType>(config: &mut Config, _: &Admin, liquidity: u64) {
@@ -587,5 +591,16 @@ module memez_fun::memez_fun {
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
         init(ctx);
+    }
+
+    #[test_only]
+    public use fun fun_pool_address as FunPool.address;
+    public fun fun_pool_address(pool: &mut FunPool): address {
+        pool.id.to_address()
+    }
+
+    #[test_only]
+    public fun make_pool_key_for_testing<CoinA, CoinB>(): TypeName {
+        make_pool_key<CoinA, CoinB>()
     }
 }

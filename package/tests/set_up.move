@@ -25,8 +25,6 @@ module memez_fun::tests_set_up {
 
     // === Structs ===
 
-    public struct AFWitness has drop {}
-
     public struct IPXWitness has drop, copy {}
 
     public struct World {

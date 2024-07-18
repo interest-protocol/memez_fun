@@ -2,8 +2,8 @@
 module memez_fun::tests_quote {
 
     use sui::{
-        test_utils::assert_eq,
-        coin::{mint_for_testing, burn_for_testing},
+        test_utils::{assert_eq, destroy},
+        coin::{mint_for_testing, burn_for_testing, TreasuryCap, CoinMetadata},
     };
 
     use suitears::math64::{mul_div_up, min};
@@ -14,7 +14,8 @@ module memez_fun::tests_quote {
         eth::ETH,
         meme::MEME,
         memez_fun_quote,
-        tests_set_up::start_world
+        cat::{Self, CAT},
+        tests_set_up::{start_world, people, IPXWitness}
     };
 
     const PRECISION: u64 = 1_000_000_000;
@@ -123,6 +124,41 @@ module memez_fun::tests_quote {
 
         assert_eq(amount_in, expected_amount_in);
 
+        world.end();
+    }
+
+    #[test]
+    fun test_amount_in_virtual_y() {
+        let mut world = start_world();
+        let (owner, _) = people();
+
+        cat::init_for_testing(world.scenario().ctx());
+
+        world.scenario().next_tx(owner);
+
+        let cat_treasury_cap = world.scenario().take_from_sender<TreasuryCap<CAT>>(); 
+        let metadata_cat = world.scenario().take_shared<CoinMetadata<CAT>>();
+
+        let create_fee = mint_for_testing(5_000_000_000, world.scenario().ctx());
+
+       let pool = world.new<CAT, ETH, IPXWitness>(
+            cat_treasury_cap,
+            &metadata_cat,
+            create_fee,
+            0
+        );
+
+        // 0.1 ETH
+        let eth_amount_out = 200_000_000;
+
+        // Pool does not have any ETH to get out
+        let quote_amount = memez_fun_quote::amount_in<CAT, ETH>(&pool, eth_amount_out);
+
+        assert_eq(quote_amount, 0);
+
+        pool.share();
+
+        destroy(metadata_cat);
         world.end();
     }
 
