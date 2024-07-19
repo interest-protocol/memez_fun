@@ -163,15 +163,12 @@ module memez_fun::memez_fun {
             balance_y,
             admin_balance_x,
             admin_balance_y,
-            swap_fee: _,
-            liquidity_x: _,
-            liquidity_y: _,
-            is_migrating,
-            is_x_virtual,
-            migration_liquidity_target: _,
             admin,
             migration_witness,
-            burn_percent
+            burn_percent,
+            is_migrating,
+            is_x_virtual,
+            ..
         } = state;
 
         assert!(migration_witness == type_name::get<Witness>(), errors::incorrect_migration_witness());
