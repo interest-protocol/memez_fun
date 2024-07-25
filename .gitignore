@@ -6,4 +6,5 @@ node_modules
 .idea
 .DS_Store
 build
-.coverage_map.mvcov
+.coverage_map.mvcov 
+node_modules 
